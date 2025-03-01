@@ -36,9 +36,7 @@
             columnHeader3 = new ColumnHeader();
             columnHeader4 = new ColumnHeader();
             PanelRight = new Panel();
-            label2 = new Label();
             LabelInterface = new Label();
-            comboBox2 = new ComboBox();
             comboBox1 = new ComboBox();
             PanelRight.SuspendLayout();
             SuspendLayout();
@@ -47,17 +45,18 @@
             // 
             ProgressBar.Location = new Point(12, 476);
             ProgressBar.Name = "ProgressBar";
-            ProgressBar.Size = new Size(610, 34);
+            ProgressBar.Size = new Size(932, 34);
             ProgressBar.TabIndex = 1;
             // 
             // BtnStart
             // 
-            BtnStart.Location = new Point(58, 375);
+            BtnStart.Location = new Point(58, 306);
             BtnStart.Name = "BtnStart";
             BtnStart.Size = new Size(185, 58);
             BtnStart.TabIndex = 2;
             BtnStart.Text = "Начать";
             BtnStart.UseVisualStyleBackColor = true;
+            BtnStart.Click += BtnStart_Click;
             // 
             // LViewNodes
             // 
@@ -94,48 +93,28 @@
             // PanelRight
             // 
             PanelRight.BackColor = SystemColors.ControlDark;
-            PanelRight.Controls.Add(label2);
             PanelRight.Controls.Add(LabelInterface);
-            PanelRight.Controls.Add(comboBox2);
             PanelRight.Controls.Add(comboBox1);
             PanelRight.Controls.Add(BtnStart);
             PanelRight.Location = new Point(644, 12);
             PanelRight.Name = "PanelRight";
-            PanelRight.Size = new Size(300, 498);
+            PanelRight.Size = new Size(300, 433);
             PanelRight.TabIndex = 4;
-            // 
-            // label2
-            // 
-            label2.AutoSize = true;
-            label2.Location = new Point(58, 160);
-            label2.Name = "label2";
-            label2.Size = new Size(113, 25);
-            label2.TabIndex = 6;
-            label2.Text = "Выполнение";
             // 
             // LabelInterface
             // 
             LabelInterface.AutoSize = true;
-            LabelInterface.Location = new Point(58, 43);
+            LabelInterface.Location = new Point(58, 96);
             LabelInterface.Name = "LabelInterface";
             LabelInterface.Size = new Size(170, 25);
             LabelInterface.TabIndex = 5;
             LabelInterface.Text = "Сетевой интерфейс";
             // 
-            // comboBox2
-            // 
-            comboBox2.DropDownStyle = ComboBoxStyle.DropDownList;
-            comboBox2.FormattingEnabled = true;
-            comboBox2.Location = new Point(58, 208);
-            comboBox2.Name = "comboBox2";
-            comboBox2.Size = new Size(182, 33);
-            comboBox2.TabIndex = 4;
-            // 
             // comboBox1
             // 
             comboBox1.DropDownStyle = ComboBoxStyle.DropDownList;
             comboBox1.FormattingEnabled = true;
-            comboBox1.Location = new Point(58, 84);
+            comboBox1.Location = new Point(58, 154);
             comboBox1.Name = "comboBox1";
             comboBox1.Size = new Size(182, 33);
             comboBox1.TabIndex = 3;
@@ -165,9 +144,7 @@
         private ColumnHeader columnHeader3;
         private ColumnHeader columnHeader4;
         private Panel PanelRight;
-        private Label label2;
         private Label LabelInterface;
-        private ComboBox comboBox2;
         private ComboBox comboBox1;
     }
 }
