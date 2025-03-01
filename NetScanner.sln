@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.6.33829.357
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NetScanner", "NetScanner\NetScanner.csproj", "{7152A4C3-4091-4CDC-B200-1CC97776B522}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{7152A4C3-4091-4CDC-B200-1CC97776B522}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7152A4C3-4091-4CDC-B200-1CC97776B522}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7152A4C3-4091-4CDC-B200-1CC97776B522}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7152A4C3-4091-4CDC-B200-1CC97776B522}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {B841550F-82E8-473B-8E3D-CC75CB7C48B8}
+	EndGlobalSection
+EndGlobal
