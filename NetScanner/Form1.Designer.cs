@@ -37,7 +37,7 @@
             columnHeader4 = new ColumnHeader();
             PanelRight = new Panel();
             LabelInterface = new Label();
-            comboBox1 = new ComboBox();
+            ComboBoxInterface = new ComboBox();
             PanelRight.SuspendLayout();
             SuspendLayout();
             // 
@@ -50,9 +50,9 @@
             // 
             // BtnStart
             // 
-            BtnStart.Location = new Point(58, 306);
+            BtnStart.Location = new Point(43, 306);
             BtnStart.Name = "BtnStart";
-            BtnStart.Size = new Size(185, 58);
+            BtnStart.Size = new Size(222, 58);
             BtnStart.TabIndex = 2;
             BtnStart.Text = "Начать";
             BtnStart.UseVisualStyleBackColor = true;
@@ -94,7 +94,7 @@
             // 
             PanelRight.BackColor = SystemColors.ControlDark;
             PanelRight.Controls.Add(LabelInterface);
-            PanelRight.Controls.Add(comboBox1);
+            PanelRight.Controls.Add(ComboBoxInterface);
             PanelRight.Controls.Add(BtnStart);
             PanelRight.Location = new Point(644, 12);
             PanelRight.Name = "PanelRight";
@@ -104,20 +104,22 @@
             // LabelInterface
             // 
             LabelInterface.AutoSize = true;
-            LabelInterface.Location = new Point(58, 96);
+            LabelInterface.Location = new Point(68, 135);
             LabelInterface.Name = "LabelInterface";
             LabelInterface.Size = new Size(170, 25);
             LabelInterface.TabIndex = 5;
             LabelInterface.Text = "Сетевой интерфейс";
             // 
-            // comboBox1
+            // ComboBoxInterface
             // 
-            comboBox1.DropDownStyle = ComboBoxStyle.DropDownList;
-            comboBox1.FormattingEnabled = true;
-            comboBox1.Location = new Point(58, 154);
-            comboBox1.Name = "comboBox1";
-            comboBox1.Size = new Size(182, 33);
-            comboBox1.TabIndex = 3;
+            ComboBoxInterface.AllowDrop = true;
+            ComboBoxInterface.DropDownStyle = ComboBoxStyle.DropDownList;
+            ComboBoxInterface.FormattingEnabled = true;
+            ComboBoxInterface.Location = new Point(43, 191);
+            ComboBoxInterface.Name = "ComboBoxInterface";
+            ComboBoxInterface.Size = new Size(222, 33);
+            ComboBoxInterface.TabIndex = 3;
+            ComboBoxInterface.SelectedIndexChanged += ComboBoxInterface_SelectedIndexChanged;
             // 
             // FrmMain
             // 
@@ -145,6 +147,6 @@
         private ColumnHeader columnHeader4;
         private Panel PanelRight;
         private Label LabelInterface;
-        private ComboBox comboBox1;
+        private ComboBox ComboBoxInterface;
     }
 }

@@ -2,64 +2,106 @@ using System.Net.NetworkInformation;
 using System.Net;
 using System.Diagnostics;
 using System.Text.RegularExpressions;
-using System.Net.Mail;
+using System.Net.Sockets;
 
 namespace NetScanner
 {
     public partial class FrmMain : Form
     {
-        private string _executionTime;
-        private string _netInterface;
+        public NetworkInterface NetInterface { get { return GetNetInterface(); } }
+        public int ProgressBarValue { get { return GetProgressBarValue(); } set { SetProgressBarValue(value); } }
+        public bool IsBtnEnabled { get { return GetBtnEnabled(); }set { SetBtnEnabled(value); } }
+        private IPAddress _localIP;
+        private IPAddress _mask;
         private List<string> _IPs;
         private List<string> _MACs;
 
+        private NetworkInterface GetNetInterface()
+        {
+            NetworkInterface[] nics = NetworkInterface.GetAllNetworkInterfaces();
+            foreach (NetworkInterface nic in nics)
+            {
+                if (nic.Name == ComboBoxInterface.Text)
+                    return nic;
+
+            }
+            return null;
+        }
+
+        private int GetProgressBarValue()
+        {
+            return ProgressBar.Value;
+        }
+
+        private void SetProgressBarValue(int value)
+        {
+            ProgressBar.Value = value;
+        }
+
+        private bool GetBtnEnabled()
+        {
+            return BtnStart.Enabled;
+        }
+
+        private void SetBtnEnabled(bool value)
+        {
+            BtnStart.Enabled = value;
+        }
+
+        private (IPAddress, IPAddress) GetLocalIP()
+        {
+            var ipProperties = NetInterface.GetIPProperties();
+            var ipv4Address = ipProperties.UnicastAddresses
+                .FirstOrDefault(ip => ip.Address.AddressFamily == AddressFamily.InterNetwork);
+            if (ipv4Address != null)
+            {
+                return (ipv4Address.Address, ipv4Address.IPv4Mask);
+            }
+            else
+            {
+                return (null, null);
+            }
+        }
         public FrmMain()
         {
             InitializeComponent();
             _IPs = new List<string>();
             _MACs = new List<string>();
+            NetworkInterface[] nics = NetworkInterface.GetAllNetworkInterfaces();
+            foreach (NetworkInterface nic in nics)
+            {
+                if (nic.OperationalStatus == OperationalStatus.Up)
+                {
+                    ComboBoxInterface.Items.Add(nic.Name);
+                }
+            }
+            BtnStart.Enabled = false;
         }
 
         private async void BtnStart_Click(object sender, EventArgs e)
         {
             _IPs.Clear();
             _MACs.Clear();
-            ProgressBar.Value = 0;
+            (_localIP, _mask) = GetLocalIP();
+            ProgressBarValue = 0;
+            IsBtnEnabled = false;
 
-            await Scanner.ScanNodesPar(_IPs);
-            ProgressBar.Value += 30;
+            await Scanner.ScanNodesPar(_localIP, _IPs);
+            ProgressBarValue += 30;
 
             ARP.ExecuteArpCommand();
-            ProgressBar.Value += 10;
+            ProgressBarValue += 10;
 
             var _arpEntries = ARP.ParseArpOutput("arp_output.txt");
-            ProgressBar.Value += 10;
+            ProgressBarValue += 10;
 
-            for (int i = 0; i < _IPs.Count; i++)
-            {
-                if (_arpEntries.ContainsKey(_IPs[i]))
-                    _MACs.Add(_arpEntries[_IPs[i]]);
-                else
-                    if (_IPs[i] == Scanner.GetLocalIPAddress())
-                {
-                    NetworkInterface[] nics = NetworkInterface.GetAllNetworkInterfaces();
-                    foreach (NetworkInterface nic in nics)
-                    {
-                        if (nic.OperationalStatus == OperationalStatus.Up)
-                        {
-                            string macAddress = nic.GetPhysicalAddress().ToString();
-                            string formattedMacAddress = $"{macAddress.Substring(0, 2)}-{macAddress.Substring(2, 2)}-{macAddress.Substring(4, 2)}-{macAddress.Substring(6, 2)}-{macAddress.Substring(8, 2)}-{macAddress.Substring(10, 2)}";
-                            _MACs.Add(formattedMacAddress.ToLower());
-                            break;
-                        }
-                    }
-                }
-                else
-                    _MACs.Add("Нет сведений");
-            }
+            ARP.FillMACs(_localIP, NetInterface, _IPs, _MACs, _arpEntries);
+
+            BtnStart.Enabled = true;
             ProgressBar.Value = ProgressBar.Maximum;
             Update(_IPs, _MACs);
         }
+
         private void Update(List<string> IPs, List<string> MACs)
         {
             LViewNodes.Items.Clear();
@@ -72,17 +114,16 @@ namespace NetScanner
         }
         private class Scanner
         {
-            public static async Task ScanNodesPar(List<string> IPs)
+            public static async Task ScanNodesPar(IPAddress LocalIP, List<string> IPs)
             {
-                string localIP = GetLocalIPAddress();
-                if (localIP == null)
+                if (LocalIP == null)
                 {
                     MessageBox.Show("Unable to get local IP address.");
                     return;
                 }
 
-                string[] parts = localIP.Split('.');
-                string baseIP = $"{parts[0]}.{parts[1]}.{parts[2]}.";
+                string[] parts = LocalIP.ToString().Split('.');
+                string baseIP = $"{parts[0]}.{parts[1]}.{parts[2]}.";//МАСКА ПОДСЕТИ ДОЛЖНА БЫТЬ
 
                 Task[] tasks = new Task[254];
 
@@ -93,20 +134,6 @@ namespace NetScanner
                 }
 
                 await Task.WhenAll(tasks);
-            }
-
-            public static string GetLocalIPAddress()
-            {
-                var host = Dns.GetHostEntry(Dns.GetHostName());
-                foreach (var ip in host.AddressList)
-                {
-                    if (ip.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
-                    {
-                        return ip.ToString();
-                    }
-                }
-
-                return null;
             }
 
             static async Task PingDevice(string ip, List<string> IPs)
@@ -175,6 +202,34 @@ namespace NetScanner
 
                 return arpEntries;
             }
+
+            public static void FillMACs(IPAddress LocalIP, NetworkInterface NetInterface, List <string> IPs, List <string> MACs, Dictionary<string, string> ARP)
+            {
+                for (int i = 0; i < IPs.Count; i++)
+                {
+                    if (ARP.ContainsKey(IPs[i]))
+                        MACs.Add(ARP[IPs[i]]);
+                    else
+                        if (IPs[i] == LocalIP.ToString())
+                    {
+                        string macAddress = NetInterface.GetPhysicalAddress().ToString();
+                        if (macAddress.Length == 12)
+                        {
+                            string formattedMacAddress = $"{macAddress.Substring(0, 2)}-{macAddress.Substring(2, 2)}-{macAddress.Substring(4, 2)}-{macAddress.Substring(6, 2)}-{macAddress.Substring(8, 2)}-{macAddress.Substring(10, 2)}";
+                            MACs.Add(formattedMacAddress.ToLower());
+                        }
+                        else
+                            MACs.Add("Нет сведений");
+                    }
+                    else
+                        MACs.Add("Нет сведений");
+                }
+            }
+        }
+
+        private void ComboBoxInterface_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            IsBtnEnabled = ComboBoxInterface.SelectedIndex != -1;
         }
     }
 }
