@@ -3,7 +3,9 @@ using System.Net;
 using System.Diagnostics;
 using System.Text.RegularExpressions;
 using System.Net.Sockets;
-using System.Collections;
+using System.Numerics;
+using System.Collections.Concurrent;
+using System.Text;
 
 namespace NetScanner
 {
@@ -11,13 +13,14 @@ namespace NetScanner
     {
         public NetworkInterface NetInterface { get { return GetNetInterface(); } }
         public int ProgressBarValue { get { return GetProgressBarValue(); } set { SetProgressBarValue(value); } }
-        public bool IsBtnEnabled { get { return GetBtnEnabled(); }set { SetBtnEnabled(value); } }
+        public bool IsBtnEnabled { get { return GetBtnEnabled(); } set { SetBtnEnabled(value); } }
 
         private IPAddress _localIP;
         private IPAddress _mask;
         private List<IPAddress> _IPs;
         private List<string> _MACs;
         private List<string> _Names;
+        private List<string> _Ports;
         private static readonly object lockObj = new object();
 
         private const int TIME_FOR_IP = 5;
@@ -72,12 +75,30 @@ namespace NetScanner
                 return (null, null);
             }
         }
+
+        private void Update(List<IPAddress> IPs, List<string> MACs, List<string> Names, List<string> Ports)
+        {
+            LViewNodes.Items.Clear();
+            for (int i = 0; i < IPs.Count; i++)
+            {
+                ListViewItem item = new ListViewItem(IPs[i].ToString());
+                if (MACs.Count > i)
+                    item.SubItems.Add(MACs[i]);
+                if (Names.Count > i)
+                    item.SubItems.Add(Names[i]);
+                if (Ports.Count > i)
+                    item.SubItems.Add(Ports[i]);
+                LViewNodes.Items.Add(item);
+            }
+        }
+
         public FrmMain()
         {
             InitializeComponent();
             _IPs = new List<IPAddress>();
             _MACs = new List<string>();
             _Names = new List<string>();
+            _Ports = new List<string>();
             NetworkInterface[] nics = NetworkInterface.GetAllNetworkInterfaces();
             foreach (NetworkInterface nic in nics)
             {
@@ -95,26 +116,30 @@ namespace NetScanner
             _IPs.Clear();
             _MACs.Clear();
             _Names.Clear();
+            _Ports.Clear();
 
             (_localIP, _mask) = GetLocalIP();
             ProgressBarValue = 0;
             IsBtnEnabled = false;
 
-            await Scanner.ScanNodesPar(_localIP, _IPs);
+            await Scanner.ScanNodesPar(_localIP, _mask, _IPs);
             ProgressBarValue += TIME_FOR_IP;
-            Update(_IPs, _MACs, _Names);
+            Update(_IPs, _MACs, _Names, _Ports);
 
             ARP.ExecuteArpCommand();
             var _arpEntries = ARP.ParseArpOutput("arp_output.txt");
             ARP.FillMACs(_localIP, NetInterface, _IPs, _MACs, _arpEntries);
             ProgressBarValue += TIME_FOR_MAC;
-            Update(_IPs, _MACs, _Names);
+            Update(_IPs, _MACs, _Names, _Ports);
 
             await FillNames(_IPs, _Names);
-            ProgressBarValue = TIME-TIME_FOR_PORTS;
-            Update(_IPs, _MACs, _Names);
+            ProgressBarValue = TIME - TIME_FOR_PORTS;
+            Update(_IPs, _MACs, _Names, _Ports);
 
+            await PortsScanner.Scan(_IPs, _Ports);
             ProgressBarValue = TIME;
+            Update(_IPs, _MACs, _Names, _Ports);
+
             BtnStart.Enabled = true;
         }
 
@@ -123,59 +148,9 @@ namespace NetScanner
             IsBtnEnabled = ComboBoxInterface.SelectedIndex != -1;
         }
 
-        private async Task FillNames(List<IPAddress> IPs, List<string> Names)
-        {
-            Dictionary<string, string> map = new Dictionary<string, string>();
-            Task[] tasks = new Task[IPs.Count];
-            for (int i = 0; i < IPs.Count; i++)
-            {
-                tasks[i] = GetHostNameAsync(IPs[i].ToString(), map, IPs.Count);
-            }
-            await Task.WhenAll(tasks);
-            for (int i = 0; i < IPs.Count; i++)
-            {
-                Names.Add(map[IPs[i].ToString()]);
-            }
-        }
-
-        private async Task GetHostNameAsync(string ip, Dictionary<string, string> map, int IPCount)
-        {
-            try
-            {
-                await Task.Run(() =>
-                {
-                    IPHostEntry entry = Dns.GetHostEntry(ip);
-                    lock (lockObj)
-                    {
-                        map[ip] = entry.HostName;
-                    }
-                });
-                ProgressBarValue += TIME_FOR_NAME/ IPCount;
-
-            }
-            catch (Exception ex)
-            {
-                map[ip] = "Нет сведений";
-                ProgressBarValue += TIME_FOR_NAME / IPCount;
-            }
-        }
-
-        private void Update(List<IPAddress> IPs, List<string> MACs, List<string> Names)
-        {
-            LViewNodes.Items.Clear();
-            for (int i = 0; i < IPs.Count; i++)
-            {
-                ListViewItem item = new ListViewItem(IPs[i].ToString());
-                if (MACs.Count > i) 
-                    item.SubItems.Add(MACs[i]);
-                if (Names.Count > i)
-                    item.SubItems.Add(Names[i]);
-                LViewNodes.Items.Add(item);
-            }
-        }
         private class Scanner
         {
-            public static async Task ScanNodesPar(IPAddress LocalIP, List<IPAddress> IPs)
+            public static async Task ScanNodesPar(IPAddress LocalIP, IPAddress Mask, List<IPAddress> IPs)
             {
                 if (LocalIP == null)
                 {
@@ -183,18 +158,64 @@ namespace NetScanner
                     return;
                 }
 
-                string[] parts = LocalIP.ToString().Split('.');
-                string baseIP = $"{parts[0]}.{parts[1]}.{parts[2]}.";//МАСКА ПОДСЕТИ ДОЛЖНА БЫТЬ
+                (IPAddress startIP, IPAddress endIP) = GetIPRange(LocalIP, Mask);
 
-                Task[] tasks = new Task[254];
+                List<Task> tasks = new List<Task>();
 
-                for (int i = 1; i < 255; i++)
+                for (IPAddress ip = startIP; CompareIP(ip, endIP) <= 0; ip = NextIP(ip))
                 {
-                    string ip = baseIP + i;
-                    tasks[i - 1] = PingDevice(ip, IPs);
+                    tasks.Add(PingDevice(ip.ToString(), IPs));
                 }
 
                 await Task.WhenAll(tasks);
+            }
+
+            private static (IPAddress, IPAddress) GetIPRange(IPAddress ip, IPAddress mask)
+            {
+                byte[] ipBytes = ip.GetAddressBytes();
+                byte[] maskBytes = mask.GetAddressBytes();
+                byte[] networkBytes = new byte[4];
+                byte[] broadcastBytes = new byte[4];
+
+                for (int i = 0; i < 4; i++)
+                {
+                    networkBytes[i] = (byte)(ipBytes[i] & maskBytes[i]);
+                    broadcastBytes[i] = (byte)(networkBytes[i] | ~maskBytes[i]);
+                }
+
+                IPAddress network = new IPAddress(networkBytes);
+                IPAddress broadcast = new IPAddress(broadcastBytes);
+
+                return (NextIP(network), PreviousIP(broadcast));
+            }
+
+            private static IPAddress NextIP(IPAddress ip)
+            {
+                byte[] bytes = ip.GetAddressBytes();
+                for (int i = 3; i >= 0; i--)
+                {
+                    if (++bytes[i] != 0) break;
+                }
+                return new IPAddress(bytes);
+            }
+
+            private static IPAddress PreviousIP(IPAddress ip)
+            {
+                byte[] bytes = ip.GetAddressBytes();
+                for (int i = 3; i >= 0; i--)
+                {
+                    if (--bytes[i] != 255) break;
+                }
+                return new IPAddress(bytes);
+            }
+
+            private static int CompareIP(IPAddress ip1, IPAddress ip2)
+            {
+                byte[] array1 = ip1.GetAddressBytes();
+                byte[] array2 = ip2.GetAddressBytes();
+                Array.Reverse(array1);
+                Array.Reverse(array2);
+                return new BigInteger(array1).CompareTo(new BigInteger(array2));
             }
 
             static async Task PingDevice(string ip, List<IPAddress> IPs)
@@ -203,7 +224,7 @@ namespace NetScanner
                 {
                     try
                     {
-                        PingReply reply = await ping.SendPingAsync(ip, 100);
+                        PingReply reply = await ping.SendPingAsync(ip, 1000);
                         if (reply.Status == IPStatus.Success)
                         {
                             lock (lockObj)
@@ -267,7 +288,7 @@ namespace NetScanner
                 return arpEntries;
             }
 
-            public static void FillMACs(IPAddress LocalIP, NetworkInterface NetInterface, List <IPAddress> IPs, List <string> MACs, Dictionary<IPAddress, string> ARP)
+            public static void FillMACs(IPAddress LocalIP, NetworkInterface NetInterface, List<IPAddress> IPs, List<string> MACs, Dictionary<IPAddress, string> ARP)
             {
                 for (int i = 0; i < IPs.Count; i++)
                 {
@@ -288,6 +309,90 @@ namespace NetScanner
                     else
                         MACs.Add("Нет сведений");
                 }
+            }
+        }
+
+        private async Task FillNames(List<IPAddress> IPs, List<string> Names)
+        {
+            ConcurrentDictionary<string, string> hostMap = new ConcurrentDictionary<string, string>();
+            Task[] tasks = new Task[IPs.Count];
+            for (int i = 0; i < IPs.Count; i++)
+            {
+                tasks[i] = GetHostNameAsync(IPs[i].ToString(), hostMap, IPs.Count);
+            }
+            await Task.WhenAll(tasks);
+            for (int i = 0; i < IPs.Count; i++)
+            {
+                Names.Add(hostMap[IPs[i].ToString()]);
+            }
+        }
+
+        private async Task GetHostNameAsync(string ip, ConcurrentDictionary<string, string> hostMap, int IPCount)
+        {
+            try
+            {
+                IPHostEntry entry = await Dns.GetHostEntryAsync(ip);
+                hostMap[ip] = entry.HostName;
+            }
+            catch
+            {
+                hostMap[ip] = "Нет сведений";
+            }
+            finally
+            {
+                lock (lockObj)
+                {
+                    ProgressBarValue += TIME_FOR_NAME / IPCount;
+                }
+            }
+
+        }
+
+        private class PortsScanner
+        {
+            public static async Task Scan(List<IPAddress> IPs, List<string> Ports)
+            {
+                int startPort = 1;
+                int endPort = 1024;
+                ConcurrentDictionary<string, string> portsMap = new ConcurrentDictionary<string, string>();
+                List<Task> tasks = new List<Task>();
+                foreach (var ip in IPs)
+                {
+                    tasks.Add(ScanPortsAsync(ip.ToString(), startPort, endPort, portsMap));
+                }
+
+                await Task.WhenAll(tasks);
+                for (int i = 0; i < IPs.Count; i++)
+                {
+                    Ports.Add(portsMap[IPs[i].ToString()]);
+                }
+            }
+
+            private static async Task ScanPortsAsync(string ipAddress, int startPort, int endPort, ConcurrentDictionary<string, string> portsMap)
+            {
+                StringBuilder openPorts = new StringBuilder();
+                bool isEmpty = true;
+                for (int port = startPort; port <= endPort; port++)
+                {
+                    using (TcpClient tcpClient = new TcpClient())
+                    {
+                        try
+                        {
+                            var connectTask = tcpClient.ConnectAsync(ipAddress, port);
+                            if (await Task.WhenAny(connectTask, Task.Delay(10)) == connectTask)
+                            {
+                                isEmpty = false;
+                                openPorts.Append($"{port}, ");
+                            }
+                        }
+                        catch { }
+                    }
+                }
+                if (!isEmpty)
+                {
+                    openPorts.Remove(openPorts.Length - 2, 2);
+                }
+                portsMap[ipAddress]  =  openPorts.ToString();
             }
         }
     }

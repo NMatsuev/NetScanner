@@ -50,7 +50,7 @@
             // 
             // BtnStart
             // 
-            BtnStart.Location = new Point(43, 306);
+            BtnStart.Location = new Point(17, 346);
             BtnStart.Name = "BtnStart";
             BtnStart.Size = new Size(222, 58);
             BtnStart.TabIndex = 2;
@@ -65,7 +65,7 @@
             LViewNodes.GridLines = true;
             LViewNodes.Location = new Point(12, 12);
             LViewNodes.Name = "LViewNodes";
-            LViewNodes.Size = new Size(610, 433);
+            LViewNodes.Size = new Size(659, 433);
             LViewNodes.TabIndex = 3;
             LViewNodes.UseCompatibleStateImageBehavior = false;
             LViewNodes.View = View.Details;
@@ -88,7 +88,7 @@
             // columnHeader4
             // 
             columnHeader4.Text = "Порты";
-            columnHeader4.Width = 100;
+            columnHeader4.Width = 150;
             // 
             // PanelRight
             // 
@@ -96,15 +96,15 @@
             PanelRight.Controls.Add(LabelInterface);
             PanelRight.Controls.Add(ComboBoxInterface);
             PanelRight.Controls.Add(BtnStart);
-            PanelRight.Location = new Point(644, 12);
+            PanelRight.Location = new Point(689, 12);
             PanelRight.Name = "PanelRight";
-            PanelRight.Size = new Size(300, 433);
+            PanelRight.Size = new Size(255, 433);
             PanelRight.TabIndex = 4;
             // 
             // LabelInterface
             // 
             LabelInterface.AutoSize = true;
-            LabelInterface.Location = new Point(68, 135);
+            LabelInterface.Location = new Point(45, 150);
             LabelInterface.Name = "LabelInterface";
             LabelInterface.Size = new Size(170, 25);
             LabelInterface.TabIndex = 5;
@@ -115,7 +115,7 @@
             ComboBoxInterface.AllowDrop = true;
             ComboBoxInterface.DropDownStyle = ComboBoxStyle.DropDownList;
             ComboBoxInterface.FormattingEnabled = true;
-            ComboBoxInterface.Location = new Point(43, 191);
+            ComboBoxInterface.Location = new Point(17, 201);
             ComboBoxInterface.Name = "ComboBoxInterface";
             ComboBoxInterface.Size = new Size(222, 33);
             ComboBoxInterface.TabIndex = 3;
